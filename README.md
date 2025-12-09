@@ -44,3 +44,10 @@ There is a example in [user_password.txt.example](user_password.txt.example).
 `ansible-playbook -i hosts.ini playbook.yml`
 
 4. Enjoy.
+
+
+---
+
+
+**Disclaimer**: This repository was developed with the assistance of an AI assistant.
+Please review all code and configurations before use in production environments.
