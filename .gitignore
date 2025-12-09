@@ -12,3 +12,5 @@ hosts.ini
 *.vault
 *.key
 
+# VsCode
+.vscode/

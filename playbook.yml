@@ -1,15 +1,14 @@
 ---
 # First play: Setup user and doas (requires root access)
-- hosts: dev
+- name: Setup user and doas (requires root access)
+  hosts: dev
   remote_user: root
   vars_files:
     - vars.yml
-  collections:
-    - community.general
 
   tasks:
     - name: Add group
-      group:
+      ansible.builtin.group:
         name: "{{ target_group }}"
         state: present
 
@@ -27,13 +26,13 @@
       changed_when: false
 
     - name: Add user
-      user:
+      ansible.builtin.user:
         name: "{{ target_user }}"
         group: "{{ target_group }}"
         state: present
         shell: /bin/zsh
         home: /home/{{ target_user }}
-        create_home: yes
+        create_home: true
         # Password is set via user_password variable (from vars.yml or --extra-vars)
         # Override via CLI: --extra-vars "user_password=secure_password"
         # For production, use ansible-vault to encrypt vars.yml
@@ -46,16 +45,16 @@
         state: present
 
     - name: Ensure doas configuration permits user
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/doas.conf
         line: "permit {{ target_user }} as root"
-        create: yes
+        create: true
         owner: root
         group: root
         mode: '0644'
 
     - name: Ensure home directory has correct permissions (not world-writable)
-      file:
+      ansible.builtin.file:
         path: /home/{{ target_user }}
         state: directory
         owner: "{{ target_user }}"
@@ -63,7 +62,7 @@
         mode: '0755'
 
     - name: Ensure .ssh directory exists for user
-      file:
+      ansible.builtin.file:
         path: /home/{{ target_user }}/.ssh
         state: directory
         owner: "{{ target_user }}"
@@ -71,50 +70,49 @@
         mode: '0700'
 
     - name: Append SSH public key to authorized_keys
-      ansible.builtin.authorized_key:
+      ansible.posix.authorized_key:
         user: "{{ target_user }}"
         state: present
         key: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_rsa.pub') }}"
-        exclusive: no
+        exclusive: false
 
     - name: Ensure authorized_keys has correct permissions
-      file:
+      ansible.builtin.file:
         path: /home/{{ target_user }}/.ssh/authorized_keys
         owner: "{{ target_user }}"
         group: "{{ target_group }}"
         mode: '0600'
 
     - name: Ensure SSH server allows public key authentication
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
         regexp: "^{{ item.regexp }}"
         line: "{{ item.line }}"
         state: present
-        backup: yes
+        backup: true
       loop:
         - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
         - { regexp: '^#?AuthorizedKeysFile', line: 'AuthorizedKeysFile .ssh/authorized_keys' }
       notify: restart sshd
 
   handlers:
-    - name: restart sshd
+    - name: Restart sshd
       ansible.builtin.service:
         name: sshd
         state: restarted
       listen: restart sshd
 
 # Second play: Install packages and configure user environment (uses doas)
-- hosts: dev
+- name: Install packages and configure user environment (uses doas)
+  hosts: dev
   remote_user: "{{ target_user }}"
-  become: yes
-  become_method: doas
+  become: true
+  become_method: community.general.doas
   # become_password is read from become_password.txt via ansible_become_password in vars.yml
   # Can also be set via CLI: --become-password or -K (prompts)
   # Or override: --extra-vars "ansible_become_password=your_password"
   vars_files:
     - vars.yml
-  collections:
-    - community.general
 
   tasks:
     - name: Install packages
@@ -149,15 +147,15 @@
         state: present
 
     - name: Ensure docker group exists
-      group:
+      ansible.builtin.group:
         name: docker
         state: present
 
     - name: Add user to docker group
-      user:
+      ansible.builtin.user:
         name: "{{ target_user }}"
         groups: docker
-        append: yes
+        append: true
 
     - name: Start docker service
       ansible.builtin.service:
@@ -165,7 +163,7 @@
         state: started
 
     - name: Ensure .zshrc exists with correct permissions
-      file:
+      ansible.builtin.file:
         path: /home/{{ target_user }}/.zshrc
         state: touch
         owner: "{{ target_user }}"
@@ -173,10 +171,10 @@
         mode: '0644'
 
     - name: Add shell aliases to zshrc
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /home/{{ target_user }}/.zshrc
         line: "{{ item }}"
-        create: yes
+        create: true
         owner: "{{ target_user }}"
         group: "{{ target_group }}"
         mode: '0644'
@@ -186,20 +184,20 @@
         - "alias la='ls -a'"
 
     - name: Initialize zoxide and add to zshrc
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /home/{{ target_user }}/.zshrc
         line: 'eval "$(zoxide init zsh)"'
-        create: yes
+        create: true
         owner: "{{ target_user }}"
         group: "{{ target_group }}"
         mode: '0644'
         regexp: '^eval "\$\(zoxide init zsh\)"$'
 
     - name: Alias cd to z
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /home/{{ target_user }}/.zshrc
         line: 'alias cd="z"'
-        create: yes
+        create: true
         owner: "{{ target_user }}"
         group: "{{ target_group }}"
         mode: '0644'
@@ -210,10 +208,11 @@
         repo: https://github.com/longld/peda.git
         dest: /home/{{ target_user }}/peda
         version: master
+      become: true
       become_user: "{{ target_user }}"
 
     - name: Ensure .gdbinit exists
-      file:
+      ansible.builtin.file:
         path: /home/{{ target_user }}/.gdbinit
         state: touch
         owner: "{{ target_user }}"
@@ -221,10 +220,10 @@
         mode: '0644'
 
     - name: Add gdb-peda source to .gdbinit
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /home/{{ target_user }}/.gdbinit
         line: "source ~/peda/peda.py"
-        create: yes
+        create: true
         owner: "{{ target_user }}"
         group: "{{ target_group }}"
         mode: '0644'
@@ -239,40 +238,43 @@
         mode: '0644'
 
     - name: Configure git core.pager to use delta with BusyBox-compatible less
-      ansible.builtin.git_config:
+      community.general.git_config:
         name: core.pager
         value: delta
         scope: global
+      become: true
       become_user: "{{ target_user }}"
 
     - name: Set PAGER environment variable to use GNU less
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /home/{{ target_user }}/.zshrc
         line: 'export PAGER="less -R"'
-        create: yes
+        create: true
         owner: "{{ target_user }}"
         group: "{{ target_group }}"
         mode: '0644'
         regexp: '^export PAGER='
 
     - name: Configure git interactive.diffFilter to use delta
-      ansible.builtin.git_config:
+      community.general.git_config:
         name: interactive.diffFilter
         value: delta --color-only
         scope: global
+      become: true
       become_user: "{{ target_user }}"
 
     - name: Configure git delta.navigate
-      ansible.builtin.git_config:
+      community.general.git_config:
         name: delta.navigate
         value: "true"
         scope: global
+      become: true
       become_user: "{{ target_user }}"
 
     - name: Configure git merge.conflictStyle to zdiff3
-      ansible.builtin.git_config:
+      community.general.git_config:
         name: merge.conflictStyle
         value: zdiff3
         scope: global
+      become: true
       become_user: "{{ target_user }}"
-
