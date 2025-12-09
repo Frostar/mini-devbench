@@ -1,0 +1,14 @@
+# Password files - DO NOT COMMIT
+user_password.txt
+
+# Hosts file
+hosts.ini
+
+# Ansible
+.ansible/
+*.retry
+
+# Sensitive files
+*.vault
+*.key
+

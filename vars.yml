@@ -1,0 +1,19 @@
+---
+# User and group configuration
+target_user: developer
+target_group: developer
+
+# Public key to add to authorized_keys
+# Set this via vars.yml or override with: --extra-vars "public_key=your_public_key"
+# For security, prefer setting via --extra-vars or ansible-vault encrypted vars.yml
+public_key: "{{ lookup('file', '~/.ssh/id_rsa.pub') | trim }}"
+
+# User password (will be hashed automatically)
+# Set this via vars.yml or override with: --extra-vars "user_password=your_password"
+# For security, prefer setting via --extra-vars or ansible-vault encrypted vars.yml
+user_password: "{{ lookup('file', 'user_password.txt') | trim }}"
+
+# Become password for doas (read from file)
+# The password file should contain the user's password (same as user_password typically)
+# To use a different password, edit become_password.txt or override via CLI: --become-password
+ansible_become_password: "{{ lookup('file', 'user_password.txt') | trim }}"
