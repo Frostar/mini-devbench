@@ -2,4 +2,6 @@
 # Ansible collection requirements
 collections:
   - name: community.general
-    version: ">=7.0.0"
+    version: ">=12.1.0"
+  - name: ansible.posix
+    version: ">=2.1.0"
