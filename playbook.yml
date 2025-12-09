@@ -95,6 +95,15 @@
         - { regexp: '^#?AuthorizedKeysFile', line: 'AuthorizedKeysFile .ssh/authorized_keys' }
       notify: restart sshd
 
+    - name: Ensure SSH server allows TCP forwarding
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?AllowTcpForwarding'
+        line: 'AllowTcpForwarding yes'
+        state: present
+        backup: true
+      notify: restart sshd
+
   handlers:
     - name: Restart sshd
       ansible.builtin.service:
@@ -143,6 +152,9 @@
           - docker
           - docker-cli-compose
           - xxd
+          - bash
+          - gcompat
+          - libstdc++
           - alpine-sdk
         state: present
 
